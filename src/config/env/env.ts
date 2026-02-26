@@ -30,6 +30,17 @@ const envSchema = z.object({
     SYNC_FREQUENCY: z.enum(syncFrequencies),
     WB_TARIFFS_BOX_URL: z.string().url(),
     WB_API_TOKEN: z.string().min(1),
+    GOOGLE_SERVICE_ACCOUNT_JSON: z.string().transform((val, ctx) => {
+        try {
+            return JSON.parse(val) as Record<string, unknown>;
+        } catch {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "GOOGLE_SERVICE_ACCOUNT_JSON must be valid JSON",
+            });
+            return z.NEVER;
+        }
+    }),
 });
 
 const env = envSchema.parse({
@@ -43,6 +54,7 @@ const env = envSchema.parse({
     SYNC_FREQUENCY: process.env.SYNC_FREQUENCY,
     WB_TARIFFS_BOX_URL: process.env.WB_TARIFFS_BOX_URL,
     WB_API_TOKEN: process.env.WB_API_TOKEN,
+    GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
 });
 
 export function getSyncCron(): string {
