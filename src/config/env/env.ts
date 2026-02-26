@@ -35,6 +35,12 @@ const envSchema = z.object({
         .regex(/^[0-9]+$/)
         .transform((v) => parseInt(v))
         .pipe(z.number().int().positive()),
+    SPREADSHEET_IDS: z
+        .string()
+        .min(1)
+        .transform((val) =>
+            val.split(",").map((id) => id.trim()).filter(Boolean),
+        ),
     GOOGLE_SERVICE_ACCOUNT_JSON: z.string().transform((val, ctx) => {
         try {
             return JSON.parse(val) as Record<string, unknown>;
@@ -60,6 +66,7 @@ const env = envSchema.parse({
     WB_TARIFFS_BOX_URL: process.env.WB_TARIFFS_BOX_URL,
     WB_API_TOKEN: process.env.WB_API_TOKEN,
     ARCHIVE_DAYS: process.env.ARCHIVE_DAYS,
+    SPREADSHEET_IDS: process.env.SPREADSHEET_IDS,
     GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
 });
 

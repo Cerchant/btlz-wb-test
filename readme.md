@@ -10,7 +10,7 @@ btlz-wb-test
 
 - Запрашивает тарифы WB через GET /api/v1/tariffs/box?date=YYYY-MM-DD с авторизацией по токену.
 - Сохраняет данные в PostgreSQL с UPSERT по дате и складу, поэтому внутри одного дня данные перезаписываются свежими.
-- Для каждой Google-таблицы из базы (таблица spreadsheets) обновляет два листа.
+- Для каждой Google-таблицы из SPREADSHEET_IDS обновляет два листа.
 - Лист stocks_coefs содержит тарифы за текущий день, отсортированные по коэффициенту доставки от меньшего к большему.
 - Лист stocks_coefs_archive содержит архив за последние ARCHIVE_DAYS дней с сортировкой по дате (убывание) и коэффициенту доставки (возрастание).
 
@@ -52,6 +52,7 @@ docker compose up --build
 | WB_TARIFFS_BOX_URL | URL эндпоинта тарифов WB | URL | https://common-api.wildberries.ru/api/v1/tariffs/box |
 | WB_API_TOKEN | Токен авторизации WB API | строка | ваш токен из личного кабинета WB |
 | ARCHIVE_DAYS | Сколько дней хранить в архивном листе | целое число | 30 |
+| SPREADSHEET_IDS | ID Google-таблиц через запятую | строка | abc123,def456 |
 | GOOGLE_SERVICE_ACCOUNT_JSON | JSON сервисного аккаунта Google целиком в одну строку | JSON-строка | см. ниже |
 
 POSTGRES_HOST не нужен в .env, потому что compose.yaml подставляет имя контейнера postgres автоматически. Для локальной разработки без Docker подставляется localhost по умолчанию.
@@ -85,23 +86,21 @@ cat your-key.json | tr -d '\n' | pbcopy
 
 ---
 
-Как добавить spreadsheet_id в базу
+Как указать Google-таблицы для экспорта
 
-Список таблиц для экспорта хранится в PostgreSQL (таблица spreadsheets). Добавить таблицу можно через psql:
+Список таблиц задаётся в переменной SPREADSHEET_IDS через запятую. spreadsheet_id берётся из URL таблицы: https://docs.google.com/spreadsheets/d/ВОТ_ЭТОТ_ID/edit
 
-```
-docker compose exec postgres psql -U postgres -d postgres -c \
-  "INSERT INTO spreadsheets (spreadsheet_id) VALUES ('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms');"
-```
-
-Можно добавить сразу несколько:
+Пример для одной таблицы:
 
 ```
-docker compose exec postgres psql -U postgres -d postgres -c \
-  "INSERT INTO spreadsheets (spreadsheet_id) VALUES ('ID_ПЕРВОЙ_ТАБЛИЦЫ'), ('ID_ВТОРОЙ_ТАБЛИЦЫ');"
+SPREADSHEET_IDS=1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
 ```
 
-spreadsheet_id берётся из URL таблицы: https://docs.google.com/spreadsheets/d/ВОТ_ЭТОТ_ID/edit
+Пример для нескольких таблиц:
+
+```
+SPREADSHEET_IDS=ID_ПЕРВОЙ_ТАБЛИЦЫ,ID_ВТОРОЙ_ТАБЛИЦЫ,ID_ТРЕТЬЕЙ_ТАБЛИЦЫ
+```
 
 ---
 

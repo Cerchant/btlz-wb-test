@@ -1,5 +1,5 @@
-import knex from "#postgres/knex.js";
 import env from "#config/env/env.js";
+import knex from "#postgres/knex.js";
 import log4js from "log4js";
 import { updateSheet } from "./updateSheet.js";
 
@@ -52,20 +52,15 @@ async function fetchArchiveTariffs(date: string): Promise<TariffRow[]> {
         ]);
 }
 
-async function getSpreadsheetIds(): Promise<string[]> {
-    const rows: { spreadsheet_id: string }[] = await knex("spreadsheets").select("spreadsheet_id");
-    return rows.map((r) => r.spreadsheet_id);
-}
-
 export async function googleSheetsExport(): Promise<void> {
     const date = todayISO();
     const start = performance.now();
 
     logger.info({ message: "Export started", date });
 
-    const spreadsheetIds = await getSpreadsheetIds();
+    const spreadsheetIds = env.SPREADSHEET_IDS;
     if (spreadsheetIds.length === 0) {
-        logger.warn("No spreadsheets found, skipping export");
+        logger.warn("SPREADSHEET_IDS is empty, skipping export");
         return;
     }
 

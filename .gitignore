@@ -2,4 +2,3 @@ node_modules
 .local
 .env
 dist
-credentials/
