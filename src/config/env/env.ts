@@ -28,6 +28,8 @@ const envSchema = z.object({
             .transform((value) => parseInt(value)),
     ]),
     SYNC_FREQUENCY: z.enum(syncFrequencies),
+    WB_TARIFFS_BOX_URL: z.string().url(),
+    WB_API_TOKEN: z.string().min(1),
 });
 
 const env = envSchema.parse({
@@ -39,6 +41,8 @@ const env = envSchema.parse({
     NODE_ENV: process.env.NODE_ENV,
     APP_PORT: process.env.APP_PORT,
     SYNC_FREQUENCY: process.env.SYNC_FREQUENCY,
+    WB_TARIFFS_BOX_URL: process.env.WB_TARIFFS_BOX_URL,
+    WB_API_TOKEN: process.env.WB_API_TOKEN,
 });
 
 export function getSyncCron(): string {
