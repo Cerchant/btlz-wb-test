@@ -78,6 +78,13 @@ services:
     networks:
       - postgres-net
 
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${APP_PORT}/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
     logging:
       driver: json-file
       options:
