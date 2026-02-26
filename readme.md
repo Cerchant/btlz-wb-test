@@ -1,78 +1,154 @@
-# btlz-wb-test
+btlz-wb-test
 
-Сервис синхронизации тарифов WB → Postgres → Google Sheets.
+Сервис получает тарифы Wildberries по расписанию, сохраняет их в PostgreSQL по дням и экспортирует в Google Sheets.
 
-## Быстрый старт
+---
 
-### 1. Подготовка окружения
+Как это работает
 
-```bash
+По расписанию из SYNC_FREQUENCY (каждую минуту или каждый час) сервис выполняет цикл:
+
+- Запрашивает тарифы WB через GET /api/v1/tariffs/box?date=YYYY-MM-DD с авторизацией по токену.
+- Сохраняет данные в PostgreSQL с UPSERT по дате и складу, поэтому внутри одного дня данные перезаписываются свежими.
+- Для каждой Google-таблицы из базы (таблица spreadsheets) обновляет два листа.
+- Лист stocks_coefs содержит тарифы за текущий день, отсортированные по коэффициенту доставки от меньшего к большему.
+- Лист stocks_coefs_archive содержит архив за последние ARCHIVE_DAYS дней с сортировкой по дате (убывание) и коэффициенту доставки (возрастание).
+
+HTTP-сервер поднимается на порту APP_PORT и отвечает на GET /health проверкой соединения с PostgreSQL.
+
+---
+
+Запуск
+
+1. Скопируйте example.env в .env и заполните пустые переменные реальными значениями:
+
+```
 cp example.env .env
-# Заполните .env реальными значениями (WB_API_TOKEN и т.д.)
 ```
 
-### 2. Google Service Account
+2. Положите JSON-ключ Google-аккаунта в файл credentials/google.json (подробнее в разделе про Google ниже):
 
-Положите JSON-ключ сервисного аккаунта в файл `credentials/google.json`:
-
-```bash
+```
 mkdir -p credentials
-cp /path/to/your-service-account-key.json credentials/google.json
+cp /path/to/your-key.json credentials/google.json
 ```
 
-Файл монтируется в контейнер как read-only volume по пути `/app/credentials/google.json`.
-Директория `credentials/` добавлена в `.gitignore` — ключ не попадёт в репозиторий.
+3. Запустите всё одной командой:
 
-### 3. Запуск
-
-```bash
+```
 docker compose up --build
 ```
 
-Приложение:
-- применяет миграции при старте
-- запускает seeds только в `NODE_ENV=development`
-- по cron (из `SYNC_FREQUENCY`) забирает тарифы из WB и экспортирует в Google Sheets
-- поднимает HTTP-сервер с `GET /health` на `APP_PORT`
+Сервис автоматически применяет миграции при старте и включает cron-задачу по расписанию. Ничего делать руками после этого не нужно.
 
-### Команды разработки
+---
 
-Запуск только БД:
+Переменные окружения
 
-```bash
+Все переменные описаны в example.env, вот что каждая из них означает:
+
+| Переменная | Описание | Допустимые значения | Пример |
+|---|---|---|---|
+| NODE_ENV | Режим работы, seeds запускаются только в development | development, production | production |
+| POSTGRES_PORT | Порт PostgreSQL | число | 5432 |
+| POSTGRES_DB | Имя базы данных | строка | postgres |
+| POSTGRES_USER | Пользователь базы данных | строка | postgres |
+| POSTGRES_PASSWORD | Пароль к базе данных | строка | postgres |
+| APP_PORT | Порт HTTP-сервера | число | 5000 |
+| SYNC_FREQUENCY | Частота синхронизации, управляет и ingest, и export | minutely, hourly | minutely |
+| WB_TARIFFS_BOX_URL | URL эндпоинта тарифов WB | URL | https://common-api.wildberries.ru/api/v1/tariffs/box |
+| WB_API_TOKEN | Токен авторизации WB API | строка | ваш токен из личного кабинета WB |
+| ARCHIVE_DAYS | Сколько дней хранить в архивном листе | целое число | 30 |
+| GOOGLE_SERVICE_ACCOUNT_JSON_PATH | Путь к JSON-ключу Google внутри контейнера | путь | /app/credentials/google.json |
+
+POSTGRES_HOST не нужен в .env, потому что compose.yaml подставляет имя контейнера postgres автоматически. Для локальной разработки без Docker подставляется localhost по умолчанию.
+
+---
+
+Google Service Account
+
+Для работы с Google Sheets нужен сервисный аккаунт Google Cloud. Вот пошаговая настройка:
+
+1. Откройте Google Cloud Console (console.cloud.google.com), перейдите в раздел IAM, затем Сервисные аккаунты.
+2. Создайте новый сервисный аккаунт или выберите существующий.
+3. Нажмите на аккаунт, перейдите на вкладку Ключи, нажмите Добавить ключ, выберите тип JSON и скачайте файл.
+4. Скопируйте скачанный файл в проект как credentials/google.json.
+
+Директория credentials/ добавлена в .gitignore, поэтому ключ не попадёт в репозиторий. В compose.yaml файл монтируется как read-only volume по пути /app/credentials/google.json.
+
+Расшарьте Google-таблицу на email сервисного аккаунта:
+
+1. Откройте файл credentials/google.json и скопируйте значение поля client_email (выглядит как name@project.iam.gserviceaccount.com).
+2. Откройте вашу Google-таблицу, нажмите Настройки доступа.
+3. Вставьте скопированный email и выберите роль Редактор.
+
+Каждая Google-таблица должна содержать два листа (вкладки) с именами stocks_coefs и stocks_coefs_archive. Создайте их вручную, если их ещё нет.
+
+---
+
+Как добавить spreadsheet_id в базу
+
+Список таблиц для экспорта хранится в PostgreSQL (таблица spreadsheets). Добавить таблицу можно через psql:
+
+```
+docker compose exec postgres psql -U postgres -d postgres -c \
+  "INSERT INTO spreadsheets (spreadsheet_id) VALUES ('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms');"
+```
+
+Можно добавить сразу несколько:
+
+```
+docker compose exec postgres psql -U postgres -d postgres -c \
+  "INSERT INTO spreadsheets (spreadsheet_id) VALUES ('ID_ПЕРВОЙ_ТАБЛИЦЫ'), ('ID_ВТОРОЙ_ТАБЛИЦЫ');"
+```
+
+spreadsheet_id берётся из URL таблицы: https://docs.google.com/spreadsheets/d/ВОТ_ЭТОТ_ID/edit
+
+---
+
+Проверка работы
+
+1. Убедитесь, что /health отвечает 200:
+
+```
+curl http://localhost:5000/health
+```
+
+Ответ при нормальной работе выглядит так: {"status":"ok"}.
+
+2. Проверьте, что тарифы записались в базу:
+
+```
+docker compose exec postgres psql -U postgres -d postgres -c \
+  "SELECT date, warehouse_name, box_delivery_coef_expr FROM tariffs_box_daily ORDER BY date DESC LIMIT 5;"
+```
+
+Если данные появились, ingest работает корректно.
+
+3. Откройте Google-таблицу и проверьте, что листы stocks_coefs и stocks_coefs_archive заполнены данными.
+
+---
+
+Локальная разработка
+
+Для разработки без Docker запустите только базу и приложение отдельно:
+
+```
 docker compose up -d --build postgres
-```
-
-Миграции и сиды вне контейнера:
-
-```bash
-npm run knex:dev migrate latest
-npm run knex:dev seed run
-```
-
-Разработка с hot-reload:
-
-```bash
 npm run dev
 ```
 
-### Конфигурация
+В этом режиме NODE_ENV=development (из .env), поэтому seeds запустятся автоматически.
 
-Все настройки — через переменные окружения (см. `example.env`):
+---
 
-| Переменная | Описание |
-|---|---|
-| `POSTGRES_*` | Подключение к Postgres |
-| `APP_PORT` | Порт HTTP-сервера |
-| `SYNC_FREQUENCY` | `minutely` или `hourly` |
-| `WB_TARIFFS_BOX_URL` | URL эндпоинта тарифов WB |
-| `WB_API_TOKEN` | Токен авторизации WB API |
-| `ARCHIVE_DAYS` | Глубина архива в днях |
-| `GOOGLE_SERVICE_ACCOUNT_JSON_PATH` | Путь к JSON-ключу сервисного аккаунта |
+Чистый перезапуск
 
-### Финальная проверка
+Если нужно удалить все данные и пересобрать с нуля:
 
-```bash
+```
 docker compose down --rmi local --volumes
 docker compose up --build
 ```
+
+Эта команда удалит образы и тома PostgreSQL, затем пересоберёт проект и применит миграции заново.
