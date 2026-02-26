@@ -35,17 +35,17 @@ const envSchema = z.object({
         .regex(/^[0-9]+$/)
         .transform((v) => parseInt(v))
         .pipe(z.number().int().positive()),
-    GOOGLE_SERVICE_ACCOUNT_JSON_PATH: z.string().min(1),
-    SPREADSHEET_IDS: z
-        .string()
-        .min(1)
-        .transform((val) =>
-            val
-                .split(",")
-                .map((id) => id.trim())
-                .filter((id) => id.length > 0),
-        )
-        .pipe(z.array(z.string().min(1)).min(1)),
+    GOOGLE_SERVICE_ACCOUNT_JSON: z.string().transform((val, ctx) => {
+        try {
+            return JSON.parse(val) as Record<string, unknown>;
+        } catch {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "GOOGLE_SERVICE_ACCOUNT_JSON must be valid JSON",
+            });
+            return z.NEVER;
+        }
+    }),
 });
 
 const env = envSchema.parse({
@@ -60,8 +60,7 @@ const env = envSchema.parse({
     WB_TARIFFS_BOX_URL: process.env.WB_TARIFFS_BOX_URL,
     WB_API_TOKEN: process.env.WB_API_TOKEN,
     ARCHIVE_DAYS: process.env.ARCHIVE_DAYS,
-    GOOGLE_SERVICE_ACCOUNT_JSON_PATH: process.env.GOOGLE_SERVICE_ACCOUNT_JSON_PATH,
-    SPREADSHEET_IDS: process.env.SPREADSHEET_IDS,
+    GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
 });
 
 export function getSyncCron(): string {

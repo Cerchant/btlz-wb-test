@@ -17,15 +17,6 @@ if (env.NODE_ENV === "development") {
     logger.info("Seeds executed (development mode)");
 }
 
-await knex("spreadsheets")
-    .insert(env.SPREADSHEET_IDS.map((id) => ({ spreadsheet_id: id })))
-    .onConflict(["spreadsheet_id"])
-    .ignore();
-logger.info({
-    message: "Spreadsheets synced from env",
-    count: env.SPREADSHEET_IDS.length,
-});
-
 const cronExpr = getSyncCron();
 
 cron.schedule(cronExpr, async () => {
