@@ -2,6 +2,7 @@ import knex, { migrate, seed } from "#postgres/knex.js";
 import env, { getSyncCron } from "#config/env/env.js";
 import log4js from "log4js";
 import cron from "node-cron";
+import { createServer } from "node:http";
 import { wbTariffsIngest } from "#wb/ingest.js";
 import { googleSheetsExport } from "#gsheets/export.js";
 
@@ -37,4 +38,28 @@ logger.info({
     nodeEnv: env.NODE_ENV ?? "undefined",
     syncFrequency: env.SYNC_FREQUENCY,
     syncCron: cronExpr,
+});
+
+const port = env.APP_PORT ?? 3000;
+
+const server = createServer(async (req, res) => {
+    if (req.method === "GET" && req.url === "/health") {
+        try {
+            await knex.raw("SELECT 1");
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ status: "ok" }));
+        } catch (err) {
+            logger.error({ message: "Health check failed", error: String(err) });
+            res.writeHead(503, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ status: "error" }));
+        }
+        return;
+    }
+
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "not found" }));
+});
+
+server.listen(port, () => {
+    logger.info({ message: "HTTP server listening", port });
 });
