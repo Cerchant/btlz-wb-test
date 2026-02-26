@@ -9,15 +9,12 @@ const logger = log4js.getLogger("app");
 logger.level = "info";
 
 await migrate.latest();
-await seed.run();
+logger.info("Migrations applied");
 
-logger.info({
-    message: "Application started",
-    syncFrequency: env.SYNC_FREQUENCY,
-    syncCron: getSyncCron(),
-});
-
-logger.info("All migrations and seeds have been run");
+if (env.NODE_ENV === "development") {
+    await seed.run();
+    logger.info("Seeds executed (development mode)");
+}
 
 const cronExpr = getSyncCron();
 
@@ -35,4 +32,9 @@ cron.schedule(cronExpr, async () => {
     }
 });
 
-logger.info({ message: "Ingest cron scheduled", cron: cronExpr });
+logger.info({
+    message: "Application started",
+    nodeEnv: env.NODE_ENV ?? "undefined",
+    syncFrequency: env.SYNC_FREQUENCY,
+    syncCron: cronExpr,
+});
