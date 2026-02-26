@@ -35,17 +35,7 @@ const envSchema = z.object({
         .regex(/^[0-9]+$/)
         .transform((v) => parseInt(v))
         .pipe(z.number().int().positive()),
-    GOOGLE_SERVICE_ACCOUNT_JSON: z.string().transform((val, ctx) => {
-        try {
-            return JSON.parse(val) as Record<string, unknown>;
-        } catch {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "GOOGLE_SERVICE_ACCOUNT_JSON must be valid JSON",
-            });
-            return z.NEVER;
-        }
-    }),
+    GOOGLE_SERVICE_ACCOUNT_JSON_PATH: z.string().min(1),
 });
 
 const env = envSchema.parse({
@@ -60,7 +50,7 @@ const env = envSchema.parse({
     WB_TARIFFS_BOX_URL: process.env.WB_TARIFFS_BOX_URL,
     WB_API_TOKEN: process.env.WB_API_TOKEN,
     ARCHIVE_DAYS: process.env.ARCHIVE_DAYS,
-    GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
+    GOOGLE_SERVICE_ACCOUNT_JSON_PATH: process.env.GOOGLE_SERVICE_ACCOUNT_JSON_PATH,
 });
 
 export function getSyncCron(): string {
