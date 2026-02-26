@@ -2,6 +2,14 @@ import dotenv from "dotenv";
 import { z } from "zod";
 dotenv.config();
 
+const syncFrequencies = ["minutely", "hourly"] as const;
+type SyncFrequency = (typeof syncFrequencies)[number];
+
+const SYNC_CRON_MAP: Record<SyncFrequency, string> = {
+    minutely: "*/1 * * * *",
+    hourly: "0 * * * *",
+};
+
 const envSchema = z.object({
     NODE_ENV: z.union([z.undefined(), z.enum(["development", "production"])]),
     POSTGRES_HOST: z.union([z.undefined(), z.string()]),
@@ -19,6 +27,7 @@ const envSchema = z.object({
             .regex(/^[0-9]+$/)
             .transform((value) => parseInt(value)),
     ]),
+    SYNC_FREQUENCY: z.enum(syncFrequencies),
 });
 
 const env = envSchema.parse({
@@ -29,6 +38,11 @@ const env = envSchema.parse({
     POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD,
     NODE_ENV: process.env.NODE_ENV,
     APP_PORT: process.env.APP_PORT,
+    SYNC_FREQUENCY: process.env.SYNC_FREQUENCY,
 });
+
+export function getSyncCron(): string {
+    return SYNC_CRON_MAP[env.SYNC_FREQUENCY];
+}
 
 export default env;
