@@ -51,9 +51,30 @@ export async function wbTariffsIngest(): Promise<void> {
 
     logger.info({ message: "Ingest started", date });
 
-    const response = await fetchTariffsBox(date);
-    const warehouses = response.response.data.warehouseList;
-    const rows = warehouses.map((wh) => mapWarehouseRow(date, wh));
+    let response;
+    try {
+        response = await fetchTariffsBox(date);
+    } catch (err) {
+        const durationMs = Math.round(performance.now() - start);
+        logger.error({
+            message: "Ingest failed at fetch stage",
+            date,
+            durationMs,
+            error: String(err),
+        });
+        throw err;
+    }
+
+    const { dtNextBox, dtTillMax, warehouseList } = response.response.data;
+    const rows = warehouseList.map((wh) => mapWarehouseRow(date, wh));
+
+    logger.debug({
+        message: "WB tariff metadata",
+        date,
+        dtNextBox,
+        dtTillMax,
+        warehousesReceived: warehouseList.length,
+    });
 
     if (rows.length === 0) {
         logger.warn({ message: "No warehouses returned, skipping upsert", date });
@@ -72,5 +93,6 @@ export async function wbTariffsIngest(): Promise<void> {
         date,
         rowsCount: rows.length,
         durationMs,
+        dtNextBox,
     });
 }
