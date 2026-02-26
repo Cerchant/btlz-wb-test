@@ -38,6 +38,20 @@ async function fetchCurrentTariffs(date: string): Promise<TariffRow[]> {
         .orderBy("box_delivery_coef_expr", "asc");
 }
 
+async function fetchArchiveTariffs(date: string): Promise<TariffRow[]> {
+    const since = new Date(date);
+    since.setDate(since.getDate() - env.ARCHIVE_DAYS);
+    const sinceISO = since.toISOString().slice(0, 10);
+
+    return knex("tariffs_box_daily")
+        .select(SHEET_HEADERS)
+        .where("date", ">=", sinceISO)
+        .orderBy([
+            { column: "date", order: "desc" },
+            { column: "box_delivery_coef_expr", order: "asc" },
+        ]);
+}
+
 async function getSpreadsheetIds(): Promise<string[]> {
     const rows: { spreadsheet_id: string }[] = await knex("spreadsheets").select("spreadsheet_id");
     return rows.map((r) => r.spreadsheet_id);
@@ -55,15 +69,21 @@ export async function googleSheetsExport(): Promise<void> {
         return;
     }
 
-    const currentRows = await fetchCurrentTariffs(date);
+    const [currentRows, archiveRows] = await Promise.all([
+        fetchCurrentTariffs(date),
+        fetchArchiveTariffs(date),
+    ]);
 
     logger.info({
-        message: "Current tariffs queried",
+        message: "Tariffs queried",
         date,
-        rowCount: currentRows.length,
+        currentCount: currentRows.length,
+        archiveCount: archiveRows.length,
+        archiveDays: env.ARCHIVE_DAYS,
     });
 
     const currentData = currentRows.map(tariffToRow);
+    const archiveData = archiveRows.map(tariffToRow);
 
     for (const spreadsheetId of spreadsheetIds) {
         try {
@@ -71,6 +91,16 @@ export async function googleSheetsExport(): Promise<void> {
         } catch (err) {
             logger.error({
                 message: "Failed to export current tariffs",
+                spreadsheetId,
+                error: String(err),
+            });
+        }
+
+        try {
+            await updateSheet(spreadsheetId, "stocks_coefs_archive", SHEET_HEADERS, archiveData);
+        } catch (err) {
+            logger.error({
+                message: "Failed to export archive tariffs",
                 spreadsheetId,
                 error: String(err),
             });
