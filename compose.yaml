@@ -65,6 +65,7 @@ services:
       WB_API_TOKEN: ${WB_API_TOKEN}
       ARCHIVE_DAYS: ${ARCHIVE_DAYS}
       GOOGLE_SERVICE_ACCOUNT_JSON_PATH: /app/credentials/google.json
+      SPREADSHEET_IDS: ${SPREADSHEET_IDS}
 
     volumes:
       - ./credentials/google.json:/app/credentials/google.json:ro

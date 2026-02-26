@@ -60,6 +60,7 @@ docker compose up --build
 | WB_API_TOKEN | Токен авторизации WB API | строка | ваш токен из личного кабинета WB |
 | ARCHIVE_DAYS | Сколько дней хранить в архивном листе | целое число | 30 |
 | GOOGLE_SERVICE_ACCOUNT_JSON_PATH | Путь к JSON-ключу Google внутри контейнера | путь | /app/credentials/google.json |
+| SPREADSHEET_IDS | ID таблиц Google Sheets через запятую | строка | id1,id2,id3 |
 
 POSTGRES_HOST не нужен в .env, потому что compose.yaml подставляет имя контейнера postgres автоматически. Для локальной разработки без Docker подставляется localhost по умолчанию.
 
@@ -86,23 +87,23 @@ Google Service Account
 
 ---
 
-Как добавить spreadsheet_id в базу
+Spreadsheet ID
 
-Список таблиц для экспорта хранится в PostgreSQL (таблица spreadsheets). Добавить таблицу можно через psql:
-
-```
-docker compose exec postgres psql -U postgres -d postgres -c \
-  "INSERT INTO spreadsheets (spreadsheet_id) VALUES ('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms');"
-```
-
-Можно добавить сразу несколько:
-
-```
-docker compose exec postgres psql -U postgres -d postgres -c \
-  "INSERT INTO spreadsheets (spreadsheet_id) VALUES ('ID_ПЕРВОЙ_ТАБЛИЦЫ'), ('ID_ВТОРОЙ_ТАБЛИЦЫ');"
-```
+Список таблиц для экспорта задаётся переменной SPREADSHEET_IDS в .env через запятую. При старте приложение автоматически синхронизирует эти ID в базу, поэтому никаких ручных SQL-команд не нужно.
 
 spreadsheet_id берётся из URL таблицы: https://docs.google.com/spreadsheets/d/ВОТ_ЭТОТ_ID/edit
+
+Пример для одной таблицы:
+
+```
+SPREADSHEET_IDS=1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
+```
+
+Пример для нескольких:
+
+```
+SPREADSHEET_IDS=id_первой_таблицы,id_второй_таблицы
+```
 
 ---
 
