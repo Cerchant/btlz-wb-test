@@ -58,8 +58,16 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      PORT: ${APP_PORT}
+      APP_PORT: ${APP_PORT}
       NODE_ENV: production
+      SYNC_FREQUENCY: ${SYNC_FREQUENCY}
+      WB_TARIFFS_BOX_URL: ${WB_TARIFFS_BOX_URL}
+      WB_API_TOKEN: ${WB_API_TOKEN}
+      ARCHIVE_DAYS: ${ARCHIVE_DAYS}
+      GOOGLE_SERVICE_ACCOUNT_JSON_PATH: /app/credentials/google.json
+
+    volumes:
+      - ./credentials/google.json:/app/credentials/google.json:ro
 
     ports:
       - ${APP_PORT}:${APP_PORT}
